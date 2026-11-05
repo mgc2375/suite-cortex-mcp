@@ -1,0 +1,35 @@
+# === Third-party upstreams (each has its own upstream repo — clone separately) ===
+mcps/
+
+# === Cortex has its own repo (mgc2375/cortex-mcp) ===
+mcp/cortex/
+
+# === Bulky third-party tooling ===
+tools/
+
+# === Python venvs / caches ===
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+pyenv/
+pyenv2/
+
+# === Node ===
+node_modules/
+
+# === Secrets ===
+.env
+*.env
+config.json
+
+# === Runtime / logs / backups ===
+*.log
+*.bak
+*.bak2
+*.orig
+captures/*
+!captures/_seed.pcap
+
+# === macOS ===
+.DS_Store

@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUITE — Hunt Console</title>
+<style>
+  :root{
+    --bg:#0a0e12; --panel:#10151b; --panel2:#0d1217; --line:#1d2730; --line2:#283541;
+    --ink:#d7e3ec; --dim:#7d8f9c; --faint:#52616d;
+    --lime:#7ef08a; --cyan:#53d2e0; --amber:#ffc24b; --red:#ff6b6b; --violet:#b48cff; --blue:#5aa0ff;
+    --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.5;overflow:hidden}
+  a{color:var(--cyan)}
+  .app{display:grid;grid-template-rows:auto 1fr;height:100vh}
+
+  /* header */
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel2);flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:.14em;font-size:12px;color:var(--lime)}
+  .brand small{color:var(--faint);font-weight:400;letter-spacing:.08em}
+  header input,header select{background:var(--bg);border:1px solid var(--line2);color:var(--ink);font-family:var(--mono);font-size:12px;padding:7px 9px;border-radius:6px;outline:none}
+  header input#target{min-width:230px}
+  header input:focus,header select:focus{border-color:var(--cyan)}
+  .btn{border:1px solid var(--line2);background:var(--panel);color:var(--ink);font-family:var(--mono);font-size:12px;letter-spacing:.06em;padding:7px 14px;border-radius:6px;cursor:pointer;transition:.12s}
+  .btn:hover{border-color:var(--cyan)}
+  .btn.go{background:var(--lime);border-color:var(--lime);color:#05210a;font-weight:700}
+  .btn.go:hover{filter:brightness(1.08)}
+  .btn.stop{border-color:var(--red);color:var(--red)}
+  .btn.stop:hover{background:var(--red);color:#2a0606}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .pill{font-size:10px;letter-spacing:.1em;padding:4px 9px;border-radius:999px;border:1px solid var(--line2);color:var(--dim)}
+  .pill.on{color:var(--lime);border-color:var(--lime)}
+  .pill.armed{color:var(--amber);border-color:var(--amber)}
+  .spacer{flex:1}
+  .conn{display:flex;align-items:center;gap:6px;font-size:10px;letter-spacing:.1em;color:var(--dim)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+  .dot.live{background:var(--lime);box-shadow:0 0 8px var(--lime)}
+  .dot.warn{background:var(--amber);box-shadow:0 0 8px var(--amber)}
+  .dot.off{background:var(--red)}
+
+  /* body grid */
+  .body{display:grid;grid-template-columns:1fr 340px;gap:0;min-height:0}
+  .main{display:grid;grid-template-rows:auto auto 1fr;min-height:0;border-right:1px solid var(--line)}
+  .side{display:grid;grid-template-rows:auto 1fr auto;min-height:0;background:var(--panel2)}
+
+  /* NOW panel */
+  .now{padding:16px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0e141a,#0b1015)}
+  .now-top{display:flex;align-items:center;gap:12px}
+  .pulse{width:11px;height:11px;border-radius:50%;background:var(--faint);flex:none}
+  .pulse.run{background:var(--cyan);animation:pulse 1s infinite}
+  .pulse.hung{background:var(--amber);animation:none}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(83,210,224,.5)}50%{box-shadow:0 0 0 7px rgba(83,210,224,0)}}
+  .now-tool{font-size:19px;font-weight:700;color:var(--ink)}
+  .now-tool .muted{color:var(--faint);font-weight:400;font-size:14px}
+  .now-timer{margin-left:auto;font-size:22px;font-variant-numeric:tabular-nums;color:var(--cyan);font-weight:700}
+  .now-sub{margin-top:5px;color:var(--dim);font-size:11px;min-height:16px}
+  .now-out{margin-top:10px;background:#070b0e;border:1px solid var(--line);border-radius:6px;padding:9px 11px;color:var(--faint);font-size:11px;white-space:pre-wrap;word-break:break-word;max-height:76px;overflow:hidden}
+  .liveness{margin-top:9px;font-size:11px;color:var(--dim);display:flex;align-items:center;gap:7px}
+
+  /* phase tracker */
+  .phases{display:flex;gap:0;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel2);flex-wrap:wrap}
+  .phase{display:flex;align-items:center;gap:7px;padding:3px 14px 3px 0;color:var(--faint);font-size:11px;letter-spacing:.06em}
+  .phase .pdot{width:7px;height:7px;border-radius:50%;background:var(--line2)}
+  .phase.active{color:var(--cyan)} .phase.active .pdot{background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+  .phase.done{color:var(--lime)} .phase.done .pdot{background:var(--lime)}
+  .phase.fail{color:var(--red)} .phase.fail .pdot{background:var(--red)}
+  .phase .arrow{color:var(--line2);margin-left:10px}
+
+  /* activity stream */
+  .stream-wrap{display:grid;grid-template-rows:auto 1fr;min-height:0}
+  .stream-head{display:flex;align-items:center;gap:10px;padding:8px 18px;border-bottom:1px solid var(--line);color:var(--dim);font-size:10px;letter-spacing:.14em}
+  .stream{overflow-y:auto;padding:6px 0;min-height:0}
+  .ev{display:flex;gap:10px;padding:3px 18px;align-items:baseline}
+  .ev:hover{background:#0e141a}
+  .ev .t{color:var(--faint);font-size:10px;flex:none;width:58px;font-variant-numeric:tabular-nums}
+  .ev .ic{flex:none;width:14px;text-align:center}
+  .ev .msg{word-break:break-word;flex:1}
+  .ev .msg .pre{color:var(--faint);white-space:pre-wrap;display:block;margin-top:2px;font-size:11px}
+  .ev.tool .ic{color:var(--cyan)} .ev.tool .msg b{color:var(--cyan)}
+  .ev.done .ic{color:var(--lime)}
+  .ev.find .ic{color:var(--amber)} .ev.find{background:rgba(255,194,75,.06)} .ev.find .msg b{color:var(--amber)}
+  .ev.err .ic{color:var(--red)} .ev.err .msg{color:#ffb4b4}
+  .ev.esc .ic{color:var(--violet)} .ev.esc{background:rgba(180,140,255,.07)} .ev.esc .msg{color:var(--violet)}
+  .ev.ai .ic{color:var(--blue)} .ev.ai .msg{color:#b9d4ff}
+  .ev.sys .ic{color:var(--faint)} .ev.sys .msg{color:var(--dim)}
+
+  /* side panels */
+  .sec{border-bottom:1px solid var(--line);min-height:0;display:flex;flex-direction:column}
+  .sec h3{margin:0;padding:9px 14px;font-size:10px;letter-spacing:.14em;color:var(--dim);display:flex;justify-content:space-between;align-items:center}
+  .sec h3 .count{color:var(--lime);background:#0e1a10;border:1px solid #1d3a22;border-radius:999px;padding:1px 8px;font-size:10px}
+  .findings{overflow-y:auto;padding:4px 0;max-height:34vh}
+  .finding{padding:7px 14px;border-left:3px solid var(--line2)}
+  .finding.critical{border-color:var(--red)} .finding.high{border-color:var(--amber)} .finding.medium{border-color:var(--cyan)} .finding.low{border-color:var(--dim)}
+  .finding .ft{font-weight:600}
+  .finding .fm{color:var(--faint);font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+  .empty{color:var(--faint);padding:14px;font-size:11px;text-align:center}
+  .tools{overflow-y:auto;padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+  .chip{font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--line2);color:var(--dim);display:flex;gap:6px;align-items:center}
+  .chip.ok{color:var(--lime);border-color:#1d3a22} .chip.fail{color:var(--red);border-color:#3a1d1d} .chip.run{color:var(--cyan);border-color:#1d2f3a;animation:pulse 1.2s infinite}
+  .chip small{color:var(--faint)}
+  .ai-panel{overflow-y:auto;padding:10px 14px;max-height:24vh;color:#b9d4ff;font-size:11px;white-space:pre-wrap;word-break:break-word}
+  .ai-panel .r{border-top:1px dashed var(--line);padding-top:7px;margin-top:7px}
+  .ai-panel .r:first-child{border:0;margin:0;padding:0}
+  .ai-panel .lbl{color:var(--blue);font-size:9px;letter-spacing:.12em;display:block;margin-bottom:2px}
+  ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:var(--line2);border-radius:5px}::-webkit-scrollbar-track{background:transparent}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line2);padding:9px 16px;border-radius:7px;font-size:12px;opacity:0;transition:.2s;pointer-events:none}
+  .toast.show{opacity:1}
+  @media(max-width:860px){.body{grid-template-columns:1fr}.side{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">SUITE <small>· HUNT CONSOLE</small></div>
+    <input id="target" placeholder="target host / ip (e.g. 192.168.1.1)" autocomplete="off">
+    <select id="cls">
+      <option value="network">network</option>
+      <option value="web">web</option>
+      <option value="api">api</option>
+      <option value="other">other</option>
+    </select>
+    <button class="btn go" id="launch">▶ LAUNCH HUNT</button>
+    <button class="btn stop" id="stop" disabled>■ STOP</button>
+    <span class="spacer"></span>
+    <span class="pill" id="pMode">PLAN</span>
+    <span class="pill" id="pArm">LOCKED</span>
+    <span class="conn"><span class="dot" id="connDot"></span><span id="connTxt">CONNECTING</span></span>
+  </header>
+
+  <div class="body">
+    <div class="main">
+      <!-- NOW -->
+      <div class="now">
+        <div class="now-top">
+          <span class="pulse" id="pulse"></span>
+          <span class="now-tool" id="nowTool"><span class="muted">idle — set a target and launch</span></span>
+          <span class="now-timer" id="nowTimer">0:00</span>
+        </div>
+        <div class="now-sub" id="nowSub"></div>
+        <div class="now-out" id="nowOut" style="display:none"></div>
+        <div class="liveness"><span class="dot" id="liveDot"></span><span id="liveTxt">standing by</span></div>
+      </div>
+
+      <!-- phase tracker -->
+      <div class="phases" id="phases"></div>
+
+      <!-- activity stream -->
+      <div class="stream-wrap">
+        <div class="stream-head"><span>LIVE ACTIVITY</span><span class="spacer" style="flex:1"></span><span id="evCount" style="color:var(--faint)"></span></div>
+        <div class="stream" id="stream"><div class="empty">No activity yet. Launch a hunt to begin.</div></div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="sec" style="flex:0 0 auto">
+        <h3>FINDINGS <span class="count" id="fCount">0</span></h3>
+        <div class="findings" id="findings"><div class="empty">Nothing found yet.</div></div>
+      </div>
+      <div class="sec">
+        <h3>TOOLS RUN <span class="count" id="tCount">0</span></h3>
+        <div class="tools" id="tools"><div class="empty">—</div></div>
+      </div>
+      <div class="sec" style="flex:0 0 auto">
+        <h3>AI REASONING</h3>
+        <div class="ai-panel" id="ai"><div class="empty">The planner's intel &amp; attack-chain reasoning will appear here.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API = location.protocol === 'file:' ? 'http://127.0.0.1:5321' : '';
+const $ = s => document.querySelector(s);
+const esc = v => String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._);t._=setTimeout(()=>t.classList.remove('show'),2400)}
+function post(path,body){return fetch(API+'/api/'+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body||{})}).then(r=>r.json().catch(()=>({})))}
+
+const S = { running:false, tool:null, round:0, toolStart:0, lastBeat:0, lastEvent:0, toolsSeen:new Map(), findings:0 };
+
+/* ---------- phase tracker ---------- */
+const PHASES = [['triage','TRIAGE'],['understand','UNDERSTAND'],['chains','PLAN CHAINS'],['execute','HUNT']];
+function renderPhases(){
+  $('#phases').innerHTML = PHASES.map(([k,label],i)=>
+    `<span class="phase" data-ph="${k}"><span class="pdot"></span>${label}</span>`+
+    (i<PHASES.length-1?'<span class="arrow">›</span>':'')
+  ).join('');
+}
+function setPhase(k,state){const el=document.querySelector(`.phase[data-ph="${k}"]`);if(el){el.classList.remove('active','done','fail');if(state)el.classList.add(state);}}
+function resetPhases(){PHASES.forEach(([k])=>setPhase(k,null));}
+
+/* ---------- activity stream ---------- */
+let evN=0;
+function log(cls,ic,html,pre){
+  const s=$('#stream'); if(s.firstChild&&s.firstChild.className==='empty')s.innerHTML='';
+  const now=new Date().toTimeString().slice(0,8);
+  const row=document.createElement('div');
+  row.className='ev '+cls;
+  row.innerHTML=`<span class="t">${now}</span><span class="ic">${ic}</span><span class="msg">${html}${pre?`<span class="pre">${esc(pre).slice(0,500)}</span>`:''}</span>`;
+  s.appendChild(row);
+  while(s.children.length>400) s.removeChild(s.firstChild);
+  s.scrollTop=s.scrollHeight;
+  $('#evCount').textContent=(++evN)+' events';
+}
+
+/* ---------- findings ---------- */
+function addFinding(f){
+  const el=$('#findings'); if(el.firstChild&&el.firstChild.className==='empty')el.innerHTML='';
+  const sev=(f.severity||'info').toLowerCase();
+  const d=document.createElement('div'); d.className='finding '+sev;
+  d.innerHTML=`<div class="ft">${esc(f.title||'Finding')}</div><div class="fm">${esc(sev)} · ${esc(f.tool||'')}</div>`;
+  el.insertBefore(d,el.firstChild);
+  $('#fCount').textContent=(++S.findings);
+}
+
+/* ---------- tools run chips ---------- */
+function toolChip(tool,status,meta){
+  let c=S.toolsSeen.get(tool);
+  const el=$('#tools'); if(el.firstChild&&el.firstChild.className==='empty')el.innerHTML='';
+  if(!c){c=document.createElement('div');c.className='chip';el.appendChild(c);S.toolsSeen.set(tool,c);}
+  c.className='chip '+status;
+  c.innerHTML=`${esc(tool)}${meta?` <small>${esc(meta)}</small>`:''}`;
+  $('#tCount').textContent=S.toolsSeen.size;
+}
+
+/* ---------- AI reasoning ---------- */
+function addReasoning(phase,text){
+  const el=$('#ai'); if(el.firstChild&&el.firstChild.className==='empty')el.innerHTML='';
+  const d=document.createElement('div'); d.className='r';
+  d.innerHTML=`<span class="lbl">${esc((phase||'ai').toUpperCase())}</span>${esc(text)}`;
+  el.insertBefore(d,el.firstChild);
+}
+
+/* ---------- NOW panel ---------- */
+function setNow(tool,round){
+  S.tool=tool; S.round=round; S.toolStart=Date.now(); S.lastBeat=Date.now();
+  $('#nowTool').innerHTML=tool?`${esc(tool)} <span class="muted">· round ${round}</span>`:'<span class="muted">idle</span>';
+  $('#pulse').className='pulse run';
+  $('#nowOut').style.display='none'; $('#nowOut').textContent='';
+}
+function clearNow(){
+  S.tool=null;
+  $('#nowTool').innerHTML='<span class="muted">waiting…</span>';
+  $('#pulse').className='pulse';
+  $('#nowTimer').textContent='0:00';
+}
+function fmt(ms){const s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+
+/* ---------- liveness / hung detection (local tick) ---------- */
+setInterval(()=>{
+  if(S.tool){
+    const el=Date.now()-S.toolStart;
+    $('#nowTimer').textContent=fmt(el);
+  }
+  const ld=$('#liveDot'), lt=$('#liveTxt'), pulse=$('#pulse');
+  if(!S.running){ ld.className='dot'; lt.textContent='standing by'; return; }
+  const quiet=Date.now()-(S.lastBeat||S.lastEvent||Date.now());
+  if(quiet<9000){ ld.className='dot live'; lt.textContent='live · activity flowing'; if(S.tool)pulse.className='pulse run'; }
+  else if(quiet<30000){ ld.className='dot warn'; lt.textContent=`quiet for ${Math.floor(quiet/1000)}s · tool likely still running`; if(S.tool)pulse.className='pulse hung'; }
+  else { ld.className='dot warn'; lt.textContent=`⚠ no signal for ${Math.floor(quiet/1000)}s · may be hung`; if(S.tool)pulse.className='pulse hung'; }
+},500);
+
+/* ---------- controls ---------- */
+async function launch(){
+  const target=$('#target').value.trim(); const cls=$('#cls').value;
+  if(!target){toast('Enter a target first');return;}
+  $('#launch').disabled=true;
+  // reset view
+  $('#stream').innerHTML=''; $('#findings').innerHTML='<div class="empty">Nothing found yet.</div>';
+  $('#tools').innerHTML='<div class="empty">—</div>'; S.toolsSeen.clear(); S.findings=0; $('#fCount').textContent='0'; $('#tCount').textContent='0';
+  resetPhases(); evN=0;
+  try{
+    const r=await post('pipeline/run',{target,class:cls,relentless:true});
+    if(r.status===409||r.error){ toast(r.error||'already running'); $('#launch').disabled=false; return; }
+    if(r.ok){ S.running=true; S.lastEvent=Date.now(); $('#stop').disabled=false; log('sys','◆',`<b>Hunt launched</b> against ${esc(target)} <span style="color:var(--faint)">[${esc(cls)}]</span> — relentless mode`); }
+    else { toast(r.error||'launch refused'); $('#launch').disabled=false; }
+  }catch(e){ toast('Could not reach dash'); $('#launch').disabled=false; }
+}
+async function stopHunt(){ await post('pipeline/stop',{}); log('sys','■','<b>Stop requested</b> — finishing current tool then halting'); toast('Stop requested'); }
+$('#launch').onclick=launch;
+$('#stop').onclick=stopHunt;
+$('#target').addEventListener('keydown',e=>{if(e.key==='Enter')launch();});
+
+/* ---------- SSE event handling ---------- */
+function handle(ev){
+  S.lastEvent=Date.now();
+  const d=ev.data; // full cortex event when present
+  if(!d){ handleMark(ev); return; }
+  const k=d.kind;
+  switch(k){
+    case 'triaged': setPhase('triage','done'); setPhase('understand','active'); log('sys','•','target triaged'); break;
+    case 'understood': setPhase('understand','done'); setPhase('chains','active'); break;
+    case 'reasoning': addReasoning(d.phase,d.text||''); log('ai','✺',`<b>AI ${esc(d.phase||'')}</b> reasoning captured`, (d.text||'').slice(0,240)); break;
+    case 'chains_proposed': setPhase('chains','done'); setPhase('execute','active'); break;
+    case 'round_start':
+      S.round=d.round||1;
+      if(d.round>1) log('esc','↑',`<b>Round ${d.round}</b> · ${esc(d.source||'')} → ${esc((d.tools||[]).join(', ')||'—')}`);
+      else log('sys','▸',`<b>Round 1</b> · ${esc(d.source||'')} → ${esc((d.tools||[]).join(', ')||'—')}`);
+      setPhase('execute','active'); break;
+    case 'escalation':
+      log('esc','↑',`<b>0 findings — escalating</b> (round ${d.round}) → trying <b>${esc((d.next||[]).join(', '))}</b>`,'');
+      break;
+    case 'tool_start':
+      setNow(d.tool,d.round); toolChip(d.tool,'run','running');
+      log('tool','▶',`<b>${esc(d.tool)}</b> started <span style="color:var(--faint)">${esc(JSON.stringify(d.args||{}).slice(0,80))}</span>`); break;
+    case 'heartbeat':
+      S.lastBeat=Date.now();
+      if(d.tool===S.tool){ $('#nowSub').textContent=`running… ${fmt(d.elapsed_ms||0)} elapsed`; }
+      break;
+    case 'tool_output':
+      if(d.tool===S.tool && d.tail){ const o=$('#nowOut'); o.style.display='block'; o.textContent=(d.tail||'').slice(-400); }
+      break;
+    case 'open_ports':
+      log('done','⊙',`<b>${esc(d.tool)}</b> — ${d.count} open port(s): ${esc((d.ports||[]).map(p=>p.port+'/'+(p.service||'?')).join(', '))}`); break;
+    case 'finding':
+      addFinding(d); log('find','★',`<b>FINDING: ${esc(d.title)}</b> <span style="color:var(--faint)">[${esc(d.severity)}] via ${esc(d.tool)}</span>`); break;
+    case 'exec_error':
+      toolChip(d.id,'fail','failed'); log('err','✗',`<b>${esc(d.id)}</b> failed`, d.error||''); break;
+    case 'tool_done':
+      if(d.id===S.tool) clearNow();
+      toolChip(d.id,d.ok?'ok':'fail',`${d.findings?d.findings+'f · ':''}${fmt(d.ms||0)}`);
+      log('done','✓',`<b>${esc(d.id)}</b> done · ${d.ok?'ok':'failed'} · ${d.findings||0} finding(s) · ${fmt(d.ms||0)}`); break;
+    case 'exhausted':
+      log('esc','∅','<b>Arsenal exhausted</b> — every mapped tool for this class has been tried'); break;
+    case 'hunt_done':
+      S.running=false; clearNow(); $('#stop').disabled=true; $('#launch').disabled=false;
+      setPhase('execute', d.findings>0?'done':'done');
+      log('sys','◆',`<b>Hunt complete</b> — ${d.findings||0} finding(s) across ${d.rounds||1} round(s), ${d.executed||0} tool(s)`);
+      toast(`Hunt done — ${d.findings||0} finding(s)`); break;
+    default: break;
+  }
+}
+/* dash-side marks (no .data): drive the top phase tracker + a line */
+function handleMark(ev){
+  const txt=ev.text||''; const m=txt.match(/^(\w+)\s+(done|failed|info)/);
+  if(m){
+    const name=m[1], st=m[2];
+    const map={start:null,target:null,armed:null,triage:'triage',understand:'understand',chains:'chains',execute:'execute',findings:'execute'};
+    const ph=map[name];
+    if(ph) setPhase(ph, st==='failed'?'fail':st==='done'?'done':'active');
+    if(name==='armed'&&st==='done'){ $('#pMode').textContent='FULL'; $('#pMode').className='pill on'; $('#pArm').textContent='ARMED'; $('#pArm').className='pill armed'; }
+  }
+  if(ev.kind==='warn') log('err','!',esc(txt));
+  else if(/complete/.test(txt)) {/* handled by hunt_done */}
+  else log('sys','·',esc(txt));
+}
+
+/* ---------- connect ---------- */
+function connect(){
+  const es=new EventSource(API+'/events');
+  es.onopen=()=>{ $('#connDot').className='dot live'; $('#connTxt').textContent='CONNECTED'; };
+  es.onerror=()=>{ $('#connDot').className='dot off'; $('#connTxt').textContent='RECONNECTING'; };
+  es.onmessage=e=>{ try{ handle(JSON.parse(e.data)); }catch(err){} };
+}
+async function init(){
+  renderPhases();
+  try{
+    const s=await fetch(API+'/api/state').then(r=>r.json());
+    if(s&&s.target){ $('#target').value=s.target; if(s.class)$('#cls').value=s.class; }
+    if(s&&s.mode==='full'){ $('#pMode').textContent='FULL'; $('#pMode').className='pill on'; }
+    if(s&&s.armed){ $('#pArm').textContent='ARMED'; $('#pArm').className='pill armed'; }
+    const run=await post('pipeline/status',{});
+    if(run&&run.running){ S.running=true; S.lastEvent=Date.now(); $('#stop').disabled=false; $('#launch').disabled=true; log('sys','◆','A hunt is already in progress — streaming live'); }
+  }catch(e){}
+  connect();
+}
+init();
+</script>
+</body>
+</html>

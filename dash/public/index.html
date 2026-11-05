@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SUITE — operations deck</title>
+<style>
+:root{
+  --bg:#070b12; --panel:rgba(18,27,40,.72); --panel2:rgba(10,16,26,.65); --border:rgba(86,140,220,.14);
+  --text:#c9d6e8; --dim:#5a6b85; --accent:#3fa0ff; --accent2:#a06bff; --ok:#3ddc84; --warn:#ffb020; --crit:#ff4d5e;
+  --glow:rgba(63,160,255,.45); --grid:rgba(80,130,200,.05);
+  --mono:'SF Mono',ui-monospace,Menlo,monospace;
+}
+[data-theme="term"]{
+  --bg:#040704; --panel:rgba(8,20,10,.72); --panel2:rgba(4,10,5,.65); --border:rgba(57,255,124,.12);
+  --text:#a8ffb0; --dim:#3f7a50; --accent:#39ff7c; --accent2:#9dfd60; --ok:#39ff7c; --warn:#ffd239; --crit:#ff6060;
+  --glow:rgba(57,255,124,.4); --grid:rgba(57,255,124,.06);
+}
+[data-theme="synth"]{
+  --bg:#0b0616; --panel:rgba(30,14,56,.72); --panel2:rgba(18,8,34,.65); --border:rgba(255,97,216,.16);
+  --text:#f2d9ff; --dim:#875fa8; --accent:#ff61d8; --accent2:#3fd7ff; --ok:#3ff2c6; --warn:#ffc94d; --crit:#ff3d6e;
+  --glow:rgba(255,97,216,.45); --grid:rgba(182,97,255,.07);
+}
+[data-theme="graf"]{
+  --bg:#121317; --panel:rgba(30,33,40,.75); --panel2:rgba(25,28,34,.65); --border:rgba(255,255,255,.08);
+  --text:#e8e6e3; --dim:#8a8f98; --accent:#e08e45; --accent2:#7dcfb6; --ok:#7dcfb6; --warn:#f2cc5f; --crit:#e5484d;
+  --glow:rgba(224,142,69,.4); --grid:rgba(255,255,255,.03);
+}
+[data-theme="paper"]{
+  --bg:#f2f3f5; --panel:rgba(255,255,255,.9); --panel2:rgba(240,241,244,.9); --border:rgba(20,40,80,.10);
+  --text:#16181d; --dim:#6b7078; --accent:#2557d6; --accent2:#7a3ff2; --ok:#1a7f4b; --warn:#a26b00; --crit:#b3251e;
+  --glow:rgba(37,87,214,.25); --grid:rgba(20,40,80,.03);
+}
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{ margin:0; background:var(--bg); color:var(--text); font:12px/1.5 var(--mono); overflow-x:hidden; }
+body::before{
+  content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+    radial-gradient(1200px 700px at 50% -10%, transparent 40%, var(--bg) 100%),
+    radial-gradient(900px 500px at 50% 120%, var(--panel2), transparent 60%);
+  background-size:34px 34px, 34px 34px, auto, auto;
+}
+body::after{
+  content:""; position:fixed; inset:0; z-index:9; pointer-events:none; opacity:.5;
+  background:repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,.12) 2px 3px);
+  mix-blend-mode:overlay;
+}
+.cut{ clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px); }
+
+/* === SIDE DASH NAVIGATION === */
+.side-dash{
+  position:fixed; left:0; top:0; bottom:0; z-index:3;
+  width:260px; background:var(--panel);
+  border-right:1px solid var(--border);
+  transition:transform .3s ease, width .3s ease;
+  box-shadow:2px 0 12px rgba(0,0,0,.4);
+}
+.side-dash.collapsed{ width:60px; }
+.side-dash .brand{
+  padding:14px 18px; font-weight:800; letter-spacing:4px; color:var(--accent);
+  border-bottom:1px solid var(--border); font-size:13px;
+}
+.side-dash .brand small{ display:block; font-size:9px; letter-spacing:2px; color:var(--dim); font-weight:normal; }
+.side-dash .toggle{
+  position:absolute; right:0; top:8px; width:32px; height:32px;
+  background:var(--panel2); border:1px solid var(--border); cursor:pointer;
+  display:flex; align-items-center; justify-content:center;
+}
+.side-dash .toggle:hover{ background:rgba(255,255,255,.04); }
+.side-dash .toggle svg{ width:18px; height:18px; color:var(--dim); }
+.side-dash .toggle svg.rotate{ transform:rotate(180deg); }
+
+.side-dash .nav-section{
+  padding:8px 12px; font-size:10px; letter-spacing:1px; color:var(--dim);
+  border-bottom:1px solid var(--border);
+}
+.side-dash .nav-section .label{
+  display:block; padding:4px 0; font-weight:bold;
+}
+.side-dash .nav-link{
+  display:block; padding:10px 14px; color:var(--text); text-decoration:none;
+  border-radius:6px; margin:2px 4px; transition:.15s;
+}
+.side-dash .nav-link:hover{ background:rgba(255,255,255,.04); color:var(--accent); }
+.side-dash .nav-link.active{ background:rgba(63,160,255,.18); color:var(--accent); font-weight:600; }
+.side-dash .nav-sep{ height:1px; margin:6px 0; background:var(--border); }
+
+/* === PANEL CONTAINER === */
+.panel-container{
+  position:relative; margin-left:260px; transition:margin-left .3s ease;
+}
+.panel-container.shifted{ margin-left:60px; }
+.panel{
+  position:relative; min-height:100vh; padding:20px 24px; overflow-y:auto;
+  background:var(--panel); transition:margin-left .3s;
+}
+.panel .panel-header{
+  margin:-20px -24px 16px; padding:16px 24px; border-bottom:1px solid var(--border);
+  display:flex; justify-content:space-between; align-items:center;
+}
+.panel .panel-title{ font-weight:800; letter-spacing:1px; }
+.panel .panel-close{
+  width:32px; height:32px; border:1px solid var(--border); border-radius:50%;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  color:var(--dim); transition:.15s;
+}
+.panel .panel-close:hover{ background:rgba(255,77,94,.12); color:var(--crit); }
+}
+
+/* === PANEL: SUPPLY CHAIN (EXPLODED TECH STACK MAP) === */
+#panel-supply .panel-title{ margin-bottom:12px; }
+.supply-topbar{
+  display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;
+}
+.supply-topbar .target-info{
+  display:flex; gap:8px; align-items:center; font-size:10px; color:var(--dim);
+}
+.supply-topbar .target-info .label{ font-weight:bold; color:var(--accent); }
+.supply-map{
+  position:relative; min-height:320px; margin:0 -24px 12px;
+  background:var(--panel2); border:1px solid var(--border); border-radius:8px; overflow:hidden;
+}
+.supply-map .nodes{
+  position:relative; width:100%; height:100%; background:var(--panel);
+}
+.supply-map .node{
+  position:absolute; width:12px; height:12px; border-radius:50%;
+  background:var(--accent); box-shadow:0 0 8px var(--glow); cursor:pointer;
+  transition:.2s; z-index:2;
+}
+.supply-map .node:hover{ transform:scale(1.4); }
+.supply-map .node-label{
+  position:absolute; left:0; top:-28px; background:var(--panel); border:1px solid var(--border);
+  border-radius:4px; padding:2px 6px; font-size:9px; color:var(--text); white-space:nowrap;
+  pointer-events:min; opacity:0; transition:.15s;
+}
+.supply-map .node:hover .node-label{ opacity:1; }
+.supply-map .edge{
+  position:absolute; width:2px; height:2px; background:var(--dim); border-radius:2px;
+  z-index:1;
+}
+.supply-info{
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px;
+}
+.supply-info .card{
+  background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:12px;
+}
+.supply-info .card .hd{ font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--dim); margin-bottom:8px; }
+.supply-info .card .kv{ font-size:10px; padding:4px 0; border-bottom:1px solid var(--border); }
+.supply-info .card .k{ color:var(--dim); display:inline-block; width:90px; }
+.supply-info .card b{ color:var(--accent); }
+
+/* === PANEL: PEOPLE PROFILE === */
+#panel-people .panel-title{ margin-bottom:12px; }
+.people-grid{
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-top:12px;
+}
+.person-card{
+  background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:12px;
+}
+.person-card .hd{ font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--dim); margin-bottom:8px; }
+.person-card .kv{ font-size:10px; padding:4px 0; border-bottom:1px solid var(--border); }
+.person-card .k{ color:var(--dim); display:inline-block; width:110px; }
+.person-card b{ color:var(--accent); }
+
+/* === PANEL: FINDINGS / APPROVALS (condensed) === */
+#panel-approvals .panel-title{ margin-bottom:12px; }
+승인-list{ max-height:400px; overflow-y:auto; }
+승인-item{ padding:8px 0; border-bottom:1px solid var(--border); }
+승인-item .st{ font-size:10px; color:var(--dim); }
+승인-item .bl{ font-size:9px; color:var(--warn); text-transform:uppercase; }
+승인-item .row{ display:flex; gap:8px; margin-top:4px; }
+승인-item button{ all:unset; flex:1; text-align:center; padding:4px 0; font-size:9px; letter-spacing:1px; cursor:pointer; }
+승인-item .yes{ background:linear-gradient(90deg,var(--crit),#ff7a3d); color:#fff; }
+승인-item .no{ border:1px solid var(--border); color:var(--dim); }
+
+/* === HEADER OVERLAY === */
+.header-overlay{
+  position:fixed; top:0; left:60px; right:0; bottom:0; z-index:2;
+  background:rgba(7,11,18,.85); border-left:1px solid var(--border);
+  padding:20px 24px; display:none;
+}
+.header-overlay.active{ display:block; }
+.header-overlay .close{
+  position:absolute; right:12px; top:12px; width:28px; height:28px;
+  background:var(--panel2); border:1px solid var(--border); border-radius:4px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--dim);
+}
+.header-overlay .close:hover{ background:rgba(255,77,94,.12); color:var(--crit); }
+</style>
+</head>
+<body data-theme="ops">
+<div id="boot"><span>SUITING UP…</span></div>
+
+<!-- === SIDE DASH NAVIGATION === -->
+<div class="side-dash" id="sideDash">
+  <div class="brand">SUITE <small>operative deck v0</small></div>
+  <div class="toggle" id="sideToggle" aria-label=" collapse sidebar">
+    <svg viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 2 2M5 10l7-7 2 2M5 14l7 7 2-2"/></svg>
+  </div>
+  <div class="nav-section">
+    <span class="label">MODULES</span>
+  </div>
+  <a class="nav-link active" data-panel="supply">Supply Chain</a>
+  <a class="nav-link" data-panel="people">People Profile</a>
+  <a class="nav-link" data-panel="findings">Findings</a>
+  <a class="nav-link" data-panel="approvals">Gate</a>
+  <div class="nav-sep"></div>
+  <div class="nav-section">
+    <span class="label">MODELS</span>
+  </div>
+  <a class="nav-link" data-panel="dossier">Dossier</a>
+  <a class="nav-link" data-panel="chains">Chains</a>
+</div>
+
+<!-- === PANEL CONTAINER === -->
+<div class="panel-container" id="panelContainer">
+  <!-- Panel: Supply Chain -->
+  <div class="panel" id="panel-supply">
+    <div class="panel-header">
+      <span class="panel-title">Supply‑Chain Mapping</span>
+      <button class="panel-close" aria-label="close">&times;</button>
+    </div>
+    <div class="supply-topbar">
+      <div class="target-info">
+        <span class="label">TARGET</span>
+        <span id="supplyTargetName">target.com</span>
+      </div>
+      <div class="target-info">
+        <span class="label">CLASS</span>
+        <span id="supplyClass">—</span>
+      </div>
+      <div class="target-info">
+        <span class="label">MCP</span>
+        <span id="supplyMcp">—</span>
+      </div>
+    </div>
+    <div class="supply-map" id="supplyMap">
+      <div class="nodes" id="supplyNodes"></div>
+      <div class="edges" id="supplyEdges"></div>
+    </div>
+    <div class="supply-info" id="supplyInfo">
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+  <!-- Panel: People Profile -->
+  <div class="panel" id="panel-people">
+    <div class="panel-header">
+      <span class="panel-title">People Profile</span>
+      <button class="panel-close" aria-label="close">&times;</button>
+    </div>
+    <div class="people-grid" id="peopleGrid">
+      <!-- populated by JS -->
+    </div>
+    <div style="margin-top:12px; font-size:10px; color:var(--dim);">
+      <div>Collecting OSINT + Shodan data for persons linked to target infrastructure...</div>
+    </div>
+  </div>
+
+  <!-- Panel: Findings (condensed) -->
+  <div class="panel" id="panel-findings">
+    <div class="panel-header">
+      <span class="panel-title">Findings</span>
+      <button class="panel-close" aria-label="close">&times;</button>
+    </div>
+    <div class="승인-list" id="findingsList">
+      <!-- populated from cortex -->
+    </div>
+  </div>
+
+  <!-- Panel: Approvals (condensed) -->
+  <div class="panel" id="panel-approvals">
+    <div class="panel-header">
+      <span class="panel-title">Gate</span>
+      <button class="panel-close" aria-label="close">&times;</button>
+    </div>
+    <div class="승인-list" id="approvalsList">
+      <!-- populated from cortex -->
+    </div>
+  </div>
+</div>
+
+<!-- === HEADER OVERLAY (appears when side-dash is collapsed) === -->
+<div class="header-overlay" id="headerOverlay">
+  <div class="close" aria-label="open sidebar">&equiv;</div>
+  <h3 style="margin:0 0 12px; font-size:11px; letter-spacing:1px;">SUITE modules</div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+    <div><a class="small" data-panel="supply" style="color:var(--dim);">Supply Chain</a></div>
+    <div><a class="small" data-panel="people" style="color:var(--dim);">People</a></div>
+  </div>
+  <div style="margin-top:12px; font-size:10px; color:var(--dim);">
+    <a class="small" href="#" onclick="toggleSideDash()">« back to full view</a>
+  </div>
+</div>
+</div>
+
+<header>
+  <div class="brand">SUITE<small>operative deck v0</small></div>
+  <span class="tgt" id="tgt">target.com</span>
+  <span class="tag" id="modeTag">PLAN MODE</span>
+  <div class="seg" id="modeSeg">
+    <button data-m="plan" class="on">PLAN</button>
+    <button data-m="full">FULL</button>
+  </div>
+  <div class="seg" id="cpSeg">
+    <button data-c="paranoid" class="on">PARANOID</button>
+    <button data-c="normal">NORMAL</button>
+    <button data-c="yolo">YOLO</button>
+  </div>
+  <div class="arm"><div class="sw" id="armSw" onclick="arm()"><i></i></div><span class="armlbl" id="armLbl">⬥ ARMED</span></div>
+  <div class="themes">
+    <button style="background:#070b12" onclick="theme('ops')" title="ops"></button>
+    <button style="background:#0b0616" onclick="theme('synth')" title="synthwave"></button>
+    <button style="background:#040704" onclick="theme('term')" title="terminal"></button>
+    <button style="background:#121317" onclick="theme('graf')" title="grafite"></button>
+    <button style="background:#f2f3f5" onclick="theme('paper')" title="paper"></button>
+  </div>
+  <div style="margin-left:12px; display:flex; gap:6px; align-items:center;">
+    <input id="newTarget" class="tgtinput" type="text" placeholder="new target" style="background:var(--panel); border:1px solid var(--border); color:var(--text); padding:4px 8px; font-size:10px; letter-spacing:1px; min-width:120px;">
+    <button class="small" onclick="addTarget()">Add</button>
+    <button class="small" onclick="clearTarget()" style="background:rgba(255,77,94,.15); color:var(--crit);">Clear</button>
+  </div>
+</header>
+
+<main>
+  <div class="stat">
+    <span>SSE <b class="ok" id="statSse">CONNECTED</b></span>
+    <span>MODE <b id="statMode">PLAN</b></span>
+    <span>EXECUTION <b id="statArm" style="color:var(--ok)">LOCKED</b></span>
+    <span style="flex:1"></span>
+    <span>no traffic leaves scope guard · approvals never auto-submit · reports require human release</span>
+  </div>
+</main>
+
+<script>
+/* ==========================================================
+   STATE & API HELPERS
+   ========================================================== */
+const feed=document.getElementById('feed');
+function evHtml(e){return `<div class="ev ${e.kind}"><span class="ts">${e.ts}</span><span class="g">${e.kind}</span><b>${e.text}</b></div>`}
+fetch('/api/events-history').then(r=>r.json()).then(list=>feed.innerHTML=list.map(evHtml).join('')).catch(()=>{});
+const es=new EventSource('/events');
+es.onmessage=(m)=>{const e=JSON.parse(m.data);feed.insertAdjacentHTML('afterbegin',evHtml(e));};
+es.onerror=()=>{statSse.textContent='RECONNECTING';statSse.className='crit';};
+es.onopen=()=>{statSse.textContent='CONNECTED';statSse.className='ok';};
+function post(p,d){return fetch('/api/'+p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(d)})}
+
+// sync state from cortex
+async function loadState(){const r=await fetch('/api/state');const s=await r.json();
+  document.getElementById('tgt').textContent=s.target||'target.com';
+  document.getElementById('statMode').textContent=s.mode||'PLAN';
+  document.getElementById('statArm').textContent=s.armed?'ARMED':'LOCKED';
+  document.getElementById('cpLbl').textContent=s.checkpoint||'normal';
+  // reflect active panel
+  const active=document.querySelector('.side-dash .nav-link.active');
+  if(active) panelClicked(active.dataset.panel);
+}
+
+// persist theme
+function theme(t){document.body.dataset.theme=t;loadState();}
+
+// arm toggle
+function arm(){const on=document.getElementById('armSw').classList.toggle('on');document.getElementById('armLbl').textContent=on?'ARMED':'LOCKED';document.getElementById('statArm').textContent=on?'ARMED':'LOCKED';post('arm',{armed:on}).then(loadState);}
+
+// target management
+function addTarget(){const inp=document.getElementById('newTarget');const name=inp.value.trim();if(!name)return;post('target',{set:name}).then(r=>{if(r.ok){loadState();inp.value='';}}).catch(()=>{});}
+function clearTarget(){post('target',{clear:true}).then(r=>{if(r.ok){loadState();inp.value='';}}).catch(()=>{});}
+
+// ---- panel switching ----
+function panelClicked(panelName){
+  // update side-nav
+  document.querySelectorAll('.side-dash .nav-link').forEach(l=>l.classList.remove('active'));
+  const active=document.querySelector(`.side-dash .nav-link[data-panel="${panelName}"]`);
+  if(active){ active.classList.add('active'); }
+
+  // hide all panels, show target one
+  document.querySelectorAll('.panel').forEach(p=>p.style.display='none');
+  const panel=document.getElementById(`panel-${panelName}`);
+  if(panel){ panel.style.display='block'; }
+
+  // update header overlay if visible
+  const overlay=document.getElementById('headerOverlay');
+  if(overlay){ overlay.style.display='none'; }
+}
+document.querySelectorAll('.side-dash .nav-link').forEach(l=>l.onclick=()=>panelClicked(l.dataset.panel));
+
+/* ==========================================================
+   INIT: toggle side-dash / header overlay
+   ========================================================== */
+const sideDash=document.getElementById('sideDash');
+const panelContainer=document.getElementById('panelContainer');
+const headerOverlay=document.getElementById('headerOverlay');
+const sideToggle=document.getElementById('sideToggle');
+
+function toggleSideDash(){
+  sideDash.classList.toggle('collapsed');
+  panelContainer.classList.toggle('shifted');
+  // update nav active state based on current hash/panel
+  const active=document.querySelector('.side-dash .nav-link.active');
+  if(active) panelClicked(active.dataset.panel);
+  // show overlay when collapsed
+  overlay.style.display=sideDash.classList.contains('collapsed')?'block':'none';
+}
+sideToggle.onclick=toggleSideDash;
+
+// click outside to collapse
+document.addEventListener('click',e=>{
+  const insideSide=sideDash.contains(e.target);
+  const insideOverlay=headerOverlay&&headerOverlay.contains(e.target);
+  if(!insideSide&&!insideOverlay) toggleSideDash();
+});
+
+// panel close buttons
+document.querySelectorAll('.panel-close').forEach(b=>b.onclick=()=>{document.getElementById(`panel-${b.dataset.panel||'supply'}`).style.display='none';});
+
+// init: load state + open panel
+loadState();
+panelClicked('supply'); // default open
+
+/* ==========================================================
+   PANEL: SUPPLY CHAIN — fetch from cortex + build map
+   ========================================================== */
+async function loadSupplyChain(){const t=document.getElementById('tgt').textContent||'target.com';
+  // 1) fetch supply-chain data
+  const r=await fetch('/api/call_tool',{
+    method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({tool_id:'supply-chain',target:t,args:{}})
+  });
+  const data=await r.json();
+  const g=document.getElementById('supplyInfo');
+  if(!r.ok){g.innerHTML=`<div class="supply-card"><div class="hd">error</div><div class="kv"><span class="k">msg</span><b>${(r.error||'').slice(0,80)}</b></div></div>`;return;}
+  if(!data||!data.ok){g.innerHTML='<div class="supply-card"><div class="hd">no data</div></div>';return;}
+  // top bar info
+  document.getElementById('supplyTargetName').textContent=data.target||t;
+  document.getElementById('supplyClass').textContent=data.class||'—';
+  document.getElementById('supplyMcp').textContent=data.mcp||'—';
+  // 2) build nodes/edges map
+  const map=document.getElementById('supplyMap');
+  const nodesDiv=document.getElementById('supplyNodes');
+  const edgesDiv=document.getElementById('supplyEdges');
+  // clear previous
+  nodesDiv.innerHTML=''; edgesDiv.innerHTML='';
+  if(data&&data.services&&Array.isArray(data.services)){
+    // position nodes in a rough circle/grid
+    const n=data.services.length;
+    data.services.forEach((sv,i)=>{
+      const angle=(i/Math.max(1,n))*Math.PI*2;
+      const radius=120+Math.random()*40;
+      const x=Math.cos(angle)*radius+80; // center-ish
+      const y=Math.sin(angle)*radius+80;
+      const nd=document.createElement('div');
+      nd.className='node';
+      nd.style.left=x+'px'; nd.style.top=y+'px';
+      nd.title=sv.name||sv.endpoint||'service';
+      nd.dataset.id=sv.id||i;
+      // attach label
+      const lbl=document.createElement('div');
+      lbl.className='node-label';
+      lbl.textContent=sv.name||'sv'+i;
+      nd.appendChild(lbl);
+      // add some edge connections to nearby nodes
+      for(let j=0;j<n;j++){
+        if(i===j)continue;
+        const ed=document.createElement('div');
+        ed.className='edge';
+        const oNode=document.querySelector(`.node[data-id="${j}"]`);
+        if(oNode){
+          const ox=parseFloat(oNode.style.left), oy=parseFloat(oNode.style.top);
+          const dx=x-ox, dy=y-oy;
+          ed.style.width=Math.max(1,Math.abs(dx))+'px';
+          ed.style.height=Math.max(1,Math.abs(dy))+'px';
+          ed.style.left=Math.min(x,ox)+'px';
+          ed.style.top=Math.min(y,oy)+'px';
+          edgesDiv.appendChild(ed);
+        }
+      }
+      nodesDiv.appendChild(nd);
+    });
+    // after nodes are placed, add a few static edges
+    for(let i=0;i<n-1;i++){
+      const ed=document.createElement('div');
+      ed.className='edge';
+      ed.style.left='40px'; ed.style.top='40px'; ed.style.width='80px'; ed.style.height='2px';
+      edgesDiv.appendChild(ed);
+    }
+  }
+  // 3) supply info cards
+  const infoDiv=document.getElementById('supplyInfo');
+  if(data&&data.details&&Array.isArray(data.details)){
+    infoDiv.innerHTML='';
+    data.details.forEach(d=>{
+      const card=document.createElement('div');
+      card.className='card';
+      card.innerHTML=`<div class="hd">${d.type||'detail'}</div>
+        <div class="kv"><span class="k">name</span><b>${d.name||'—'}</b></div>
+        <div class="kv"><span class="k">endpoint</span><b>${d.endpoint||'—'}</b></div>
+        <div class="kv"><span class="k">host</span><b>${d.host||'—'}</b></div>`;
+      infoDiv.appendChild(card);
+    });
+  }else{
+    infoDiv.innerHTML='<div class="supply-card"><div class="hd">no details</div></div>';
+  }
+}
+
+// load on panel switch & init
+document.querySelectorAll('.side-dash .nav-link').forEach(l=>l.onclick=()=>{panelClicked(l.dataset.panel);if(l.dataset.panel==='supply')loadSupplyChain();});
+loadSupplyChain();
+
+
+/* ==========================================================
+   PANEL: PEOPLE PROFILE — Shodan + OSINT
+   ========================================================== */
+async function loadPeopleProfile(){const t=document.getElementById('tgt').textContent||'target.com';
+  const r=await fetch('/api/call_tool',{
+    method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({tool_id:'shodan',target:t,args:{}})
+  });
+  const data=await r.json();
+  const g=document.getElementById('peopleGrid');
+  if(!r.ok||!data||!data.ip_str){
+    g.innerHTML='<div class="person-card"><div class="hd">no person data</div><div class="kv"><span class="k">ip</span><b>—</b></div></div>';
+    return;
+  }
+  const ip=data.ip_str;const org=data.org||'—';const hostnames=data.hostnames||['—'];
+  g.innerHTML=`<div class="person-card">
+    <div class="hd">IP: ${ip}</div>
+    <div class="kv"><span class="k">org</span><b>${org}</b></div>
+    <div class="kv"><span class="k">hostnames</span><b>${hostnames.slice(0,5).join(', ')}</b></div>
+    <div class="kv"><span class="k">asn</span><b>${data.asn||'—'}</b></div>
+  </div>`;
+  // also try a simple OSINT fetch for associated emails etc via cortex
+  const r2=await fetch('/api/call_tool',{
+    method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({tool_id:'osint',target:t,args:{}})
+  });
+  const d2=await r2.json();
+  if(r2.ok&&d2&&d2.tools){
+    // could append extra person info here, but keep it simple
+  }
+}
+document.querySelectorAll('.side-dash .nav-link').forEach(l=>l.onclick=()=>{panelClicked(l.dataset.panel);if(l.dataset.panel==='people')loadPeopleProfile();});
+loadPeopleProfile();
+
+
+/* ==========================================================
+   INITIALISATION
+   ========================================================== */
+ // already called in loadState + panelClicked
+</script>
+</body>
+</html>
